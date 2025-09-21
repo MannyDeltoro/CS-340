@@ -1,0 +1,113 @@
+from dataclasses import dataclass
+from typing import Optional, List
+from database_manager import DatabaseManager
+import re
+
+@dataclass
+class User:
+    name: str
+    email: str
+    id: Optional[int] = None
+    created_at: Optional[str] = None
+    
+    def __post_init__(self):
+        if not self._is_valid_email(self.email):
+            raise ValueError(f"Invalid email format: {self.email}")
+        if not self.name.strip():
+            raise ValueError("Name cannot be empty")
+    
+    def _is_valid_email(self, email: str) -> bool:
+        """Basic email validation"""
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+
+class UserRepository:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db_manager = db_manager
+    
+    def create_user(self, user: User) -> int:
+        """Insert a new user and return the user ID"""
+        with self.db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'INSERT INTO users (name, email) VALUES (?, ?)',
+                (user.name, user.email)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_all_users(self) -> List[User]:
+        """Retrieve all users from the database"""
+        with self.db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, name, email, created_at FROM users')
+            rows = cursor.fetchall()
+            return [
+                User(
+                    id=row['id'],
+                    name=row['name'],
+                    email=row['email'],
+                    created_at=row['created_at']
+                )
+                for row in rows
+            ]
+    
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        """Retrieve a specific user by ID"""
+        with self.db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT id, name, email, created_at FROM users WHERE id = ?',
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return User(
+                    id=row['id'],
+                    name=row['name'],
+                    email=row['email'],
+                    created_at=row['created_at']
+                )
+            return None
+    
+    def update_user(self, user_id: int, name: Optional[str] = None, 
+                   email: Optional[str] = None) -> bool:
+        """Update user information and return success status"""
+        if not name and not email:
+            return False
+        
+        # Validate inputs if provided
+        if email and not User._is_valid_email(User, email):
+            raise ValueError(f"Invalid email format: {email}")
+        if name and not name.strip():
+            raise ValueError("Name cannot be empty")
+        
+        with self.db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if name and email:
+                cursor.execute(
+                    'UPDATE users SET name = ?, email = ? WHERE id = ?',
+                    (name, email, user_id)
+                )
+            elif name:
+                cursor.execute(
+                    'UPDATE users SET name = ? WHERE id = ?',
+                    (name, user_id)
+                )
+            elif email:
+                cursor.execute(
+                    'UPDATE users SET email = ? WHERE id = ?',
+                    (email, user_id)
+                )
+            
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def delete_user(self, user_id: int) -> bool:
+        """Delete a user and return success status"""
+        with self.db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            return cursor.rowcount > 0
