@@ -10,10 +10,7 @@ logging.basicConfig(
 )
 
 class DatabaseHandler:
-    """
-    A robust MongoDB handler supporting CRUD operations
-    with validation, logging, and flexible querying.
-    """
+  
 
     def __init__(self, db_name: str, coll_name: str, uri: str) -> None:
         """Initialize connection to MongoDB collection."""
