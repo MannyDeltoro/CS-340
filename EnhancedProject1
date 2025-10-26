@@ -10,10 +10,7 @@ logging.basicConfig(
 )
 
 class DatabaseHandler:
-    """
-    A robust MongoDB handler supporting CRUD operations
-    with validation, logging, and flexible querying.
-    """
+  
 
     def __init__(self, db_name: str, coll_name: str, uri: str) -> None:
         """Initialize connection to MongoDB collection."""
@@ -31,7 +28,7 @@ class DatabaseHandler:
             raise
 
     def insert_record(self, data: Dict[str, Any]) -> bool:
-        """Insert a single record into the collection."""
+        
         if not isinstance(data, dict):
             logging.warning("Insert failed: data must be a dictionary.")
             return False
@@ -69,7 +66,7 @@ class DatabaseHandler:
             return []
 
     def update_records(self, criteria: Dict[str, Any], values: Dict[str, Any]) -> int:
-        """Update documents matching given criteria."""
+        
         if not criteria or not values:
             logging.warning("Update skipped: criteria and values must be provided.")
             return 0
@@ -82,7 +79,7 @@ class DatabaseHandler:
             return 0
 
     def delete_records(self, criteria: Dict[str, Any]) -> int:
-        """Delete documents matching given criteria."""
+        
         if not criteria:
             logging.warning("Delete aborted: empty criteria would remove all records.")
             return 0
@@ -95,7 +92,7 @@ class DatabaseHandler:
             return 0
 
     def close_connection(self) -> None:
-        """Safely close the MongoDB client connection."""
+        
         try:
             self.client.close()
             logging.info("MongoDB connection closed successfully.")
