@@ -12,11 +12,7 @@ logging.basicConfig(
 
 
 class DatabaseHandler:
-    """
-    A lightweight MongoDB handler that encapsulates core CRUD operations
-    (Create, Read, Update, Delete) with built-in error handling, validation,
-    and logging for reliability.
-    """
+  
 
     def __init__(self, db_name: str, coll_name: str, uri: str) -> None:
         """
