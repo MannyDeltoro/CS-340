@@ -3,25 +3,23 @@ from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from typing import Dict, List, Any, Optional
 import logging
 
-
-# Configure simple structured logging
+# Configure logging for clear and professional feedback
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
 
-
 class DatabaseHandler:
-  
+    """
+    A robust MongoDB handler supporting CRUD operations
+    with validation, logging, and flexible querying.
+    """
 
     def __init__(self, db_name: str, coll_name: str, uri: str) -> None:
-        """
-        Initialize connection to MongoDB collection.
-        """
+        """Initialize connection to MongoDB collection."""
         try:
             self.client = MongoClient(uri, serverSelectionTimeoutMS=3000)
-            # Ping to verify connection
-            self.client.admin.command("ping")
+            self.client.admin.command("ping")  # Connection test
             self.database = self.client[db_name]
             self.collection = self.database[coll_name]
             logging.info(f"Connected to MongoDB: {db_name}.{coll_name}")
@@ -32,16 +30,8 @@ class DatabaseHandler:
             logging.error(f"Error initializing DatabaseHandler: {e}")
             raise
 
-    # ---------------------------
-    # CREATE
-    # ---------------------------
     def insert_record(self, data: Dict[str, Any]) -> bool:
-        """
-        Insert a single record into the collection.
-
-        :param data: Dictionary containing the document to insert
-        :return: True if insertion successful, False otherwise
-        """
+        """Insert a single record into the collection."""
         if not isinstance(data, dict):
             logging.warning("Insert failed: data must be a dictionary.")
             return False
@@ -55,9 +45,6 @@ class DatabaseHandler:
             logging.error(f"Error inserting record: {e}")
             return False
 
-    # ---------------------------
-    # READ
-    # ---------------------------
     def retrieve_records(
         self,
         criteria: Optional[Dict[str, Any]] = None,
@@ -66,16 +53,7 @@ class DatabaseHandler:
         sort_by: Optional[str] = None,
         descending: bool = False
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve documents based on query criteria.
-
-        :param criteria: Filter dictionary (default: all records)
-        :param projection: Fields to include/exclude
-        :param limit: Maximum number of results
-        :param sort_by: Field name to sort by
-        :param descending: If True, sort in descending order
-        :return: List of retrieved documents
-        """
+        """Retrieve documents with flexible filtering, sorting, and limiting."""
         try:
             criteria = criteria or {}
             cursor = self.collection.find(criteria, projection)
@@ -90,17 +68,8 @@ class DatabaseHandler:
             logging.error(f"Error retrieving records: {e}")
             return []
 
-    # ---------------------------
-    # UPDATE
-    # ---------------------------
     def update_records(self, criteria: Dict[str, Any], values: Dict[str, Any]) -> int:
-        """
-        Update all documents matching criteria.
-
-        :param criteria: Filter dictionary for records to update
-        :param values: Fields and values to set
-        :return: Number of modified documents
-        """
+        """Update documents matching given criteria."""
         if not criteria or not values:
             logging.warning("Update skipped: criteria and values must be provided.")
             return 0
@@ -112,16 +81,8 @@ class DatabaseHandler:
             logging.error(f"Error updating records: {e}")
             return 0
 
-    # ---------------------------
-    # DELETE
-    # ---------------------------
     def delete_records(self, criteria: Dict[str, Any]) -> int:
-        """
-        Delete all documents matching criteria.
-
-        :param criteria: Filter dictionary defining which documents to delete
-        :return: Number of deleted documents
-        """
+        """Delete documents matching given criteria."""
         if not criteria:
             logging.warning("Delete aborted: empty criteria would remove all records.")
             return 0
@@ -133,9 +94,6 @@ class DatabaseHandler:
             logging.error(f"Error deleting records: {e}")
             return 0
 
-    # ---------------------------
-    # CLEANUP
-    # ---------------------------
     def close_connection(self) -> None:
         """Safely close the MongoDB client connection."""
         try:
@@ -145,28 +103,20 @@ class DatabaseHandler:
             logging.error(f"Error closing MongoDB connection: {e}")
 
 
-# ===========================
-# Example Usage / Unit Test
-# ===========================
 if __name__ == "__main__":
     uri = "mongodb://aacuser:password123@nv-desktop-services.apporto.com:34472/"
-
     db_handler = DatabaseHandler("test", "test_collection", uri)
 
-    # CREATE
     new_document = {"name": "Bob Dylan", "age": 40, "email": "bob@gmail.com"}
     insert_success = db_handler.insert_record(new_document)
     print(f"Insert successful: {insert_success}")
 
-    # READ
     documents = db_handler.retrieve_records(limit=5, sort_by="name")
     print("Retrieved Documents:", documents)
 
-    # UPDATE
     updated_count = db_handler.update_records({"name": "Bob Dylan"}, {"age": 41})
     print(f"Updated {updated_count} documents.")
 
-    # DELETE
     deleted_count = db_handler.delete_records({"name": "Bob Dylan"})
     print(f"Deleted {deleted_count} documents.")
 
