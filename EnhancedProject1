@@ -1,0 +1,177 @@
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
+from typing import Dict, List, Any, Optional
+import logging
+
+
+# Configure simple structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+
+class DatabaseHandler:
+    """
+    A lightweight MongoDB handler that encapsulates core CRUD operations
+    (Create, Read, Update, Delete) with built-in error handling, validation,
+    and logging for reliability.
+    """
+
+    def __init__(self, db_name: str, coll_name: str, uri: str) -> None:
+        """
+        Initialize connection to MongoDB collection.
+        """
+        try:
+            self.client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+            # Ping to verify connection
+            self.client.admin.command("ping")
+            self.database = self.client[db_name]
+            self.collection = self.database[coll_name]
+            logging.info(f"Connected to MongoDB: {db_name}.{coll_name}")
+        except ServerSelectionTimeoutError:
+            logging.error("Unable to connect to MongoDB server: connection timed out.")
+            raise
+        except PyMongoError as e:
+            logging.error(f"Error initializing DatabaseHandler: {e}")
+            raise
+
+    # ---------------------------
+    # CREATE
+    # ---------------------------
+    def insert_record(self, data: Dict[str, Any]) -> bool:
+        """
+        Insert a single record into the collection.
+
+        :param data: Dictionary containing the document to insert
+        :return: True if insertion successful, False otherwise
+        """
+        if not isinstance(data, dict):
+            logging.warning("Insert failed: data must be a dictionary.")
+            return False
+        try:
+            result = self.collection.insert_one(data)
+            if result.inserted_id:
+                logging.info(f"Inserted document with _id: {result.inserted_id}")
+                return True
+            return False
+        except PyMongoError as e:
+            logging.error(f"Error inserting record: {e}")
+            return False
+
+    # ---------------------------
+    # READ
+    # ---------------------------
+    def retrieve_records(
+        self,
+        criteria: Optional[Dict[str, Any]] = None,
+        projection: Optional[Dict[str, int]] = None,
+        limit: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        descending: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve documents based on query criteria.
+
+        :param criteria: Filter dictionary (default: all records)
+        :param projection: Fields to include/exclude
+        :param limit: Maximum number of results
+        :param sort_by: Field name to sort by
+        :param descending: If True, sort in descending order
+        :return: List of retrieved documents
+        """
+        try:
+            criteria = criteria or {}
+            cursor = self.collection.find(criteria, projection)
+            if sort_by:
+                cursor = cursor.sort(sort_by, -1 if descending else 1)
+            if limit:
+                cursor = cursor.limit(limit)
+            results = list(cursor)
+            logging.info(f"Retrieved {len(results)} record(s).")
+            return results
+        except PyMongoError as e:
+            logging.error(f"Error retrieving records: {e}")
+            return []
+
+    # ---------------------------
+    # UPDATE
+    # ---------------------------
+    def update_records(self, criteria: Dict[str, Any], values: Dict[str, Any]) -> int:
+        """
+        Update all documents matching criteria.
+
+        :param criteria: Filter dictionary for records to update
+        :param values: Fields and values to set
+        :return: Number of modified documents
+        """
+        if not criteria or not values:
+            logging.warning("Update skipped: criteria and values must be provided.")
+            return 0
+        try:
+            result = self.collection.update_many(criteria, {"$set": values})
+            logging.info(f"Updated {result.modified_count} document(s).")
+            return result.modified_count
+        except PyMongoError as e:
+            logging.error(f"Error updating records: {e}")
+            return 0
+
+    # ---------------------------
+    # DELETE
+    # ---------------------------
+    def delete_records(self, criteria: Dict[str, Any]) -> int:
+        """
+        Delete all documents matching criteria.
+
+        :param criteria: Filter dictionary defining which documents to delete
+        :return: Number of deleted documents
+        """
+        if not criteria:
+            logging.warning("Delete aborted: empty criteria would remove all records.")
+            return 0
+        try:
+            result = self.collection.delete_many(criteria)
+            logging.info(f"Deleted {result.deleted_count} document(s).")
+            return result.deleted_count
+        except PyMongoError as e:
+            logging.error(f"Error deleting records: {e}")
+            return 0
+
+    # ---------------------------
+    # CLEANUP
+    # ---------------------------
+    def close_connection(self) -> None:
+        """Safely close the MongoDB client connection."""
+        try:
+            self.client.close()
+            logging.info("MongoDB connection closed successfully.")
+        except PyMongoError as e:
+            logging.error(f"Error closing MongoDB connection: {e}")
+
+
+# ===========================
+# Example Usage / Unit Test
+# ===========================
+if __name__ == "__main__":
+    uri = "mongodb://aacuser:password123@nv-desktop-services.apporto.com:34472/"
+
+    db_handler = DatabaseHandler("test", "test_collection", uri)
+
+    # CREATE
+    new_document = {"name": "Bob Dylan", "age": 40, "email": "bob@gmail.com"}
+    insert_success = db_handler.insert_record(new_document)
+    print(f"Insert successful: {insert_success}")
+
+    # READ
+    documents = db_handler.retrieve_records(limit=5, sort_by="name")
+    print("Retrieved Documents:", documents)
+
+    # UPDATE
+    updated_count = db_handler.update_records({"name": "Bob Dylan"}, {"age": 41})
+    print(f"Updated {updated_count} documents.")
+
+    # DELETE
+    deleted_count = db_handler.delete_records({"name": "Bob Dylan"})
+    print(f"Deleted {deleted_count} documents.")
+
+    db_handler.close_connection()
